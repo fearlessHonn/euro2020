@@ -171,5 +171,11 @@ groups = [Group("Turkey", "Italy", "Wales", "Switzerland"),
 
 for group in groups:
     group.get_table()
+    group.sort_table()
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, "expand_frame_repr", False):
-        print(group.sort_table())
+        print(group.table)
+
+for group in groups[1:]:
+    groups[0].table = groups[0].table.append(group.table)
+
+groups[0].table.to_excel("output.xlsx")
