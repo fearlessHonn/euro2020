@@ -115,20 +115,14 @@ class Group:
 
                     elif td == 0:  # Draw
                         print("direct comparison is a draw!")
-                        goal_differences = [i[6] for i in self.table.values]
-                        goal_difference_team1 = goal_differences[same[0]]
-                        goal_difference_team2 = goal_differences[same[1]]
-                        if goal_difference_team1 > goal_difference_team2:
-                            pass
-
-                        elif goal_difference_team1 == goal_difference_team2:
-                            print("same goal difference")
-
-                        elif goal_difference_team1 < goal_difference_team2:
-                            self.swap_rows(same[0])
+                        self.check_goal_difference(same[0], same[1])
 
                     elif td < 0:  # Teams B wins
                         self.swap_rows(same[0])
+
+                else:
+                    print("Havent played each other yet!")
+                    self.check_goal_difference(same[0], same[1])
 
         return self.table
 
@@ -136,6 +130,36 @@ class Group:
         rows = list(self.table.index)
         rows = rows[:index] + [rows[index + 1]] + [rows[index]] + rows[index + 2:]
         self.table.index = rows
+
+        row1, row2 = list(self.table.iloc[index]), list(self.table.iloc[index + 1])
+        self.table.iloc[index], self.table.iloc[index + 1] = row2, row1
+
+    def check_goal_difference(self, team_index_1, team_index_2):
+        goal_differences = [i[6] for i in self.table.values]
+        goal_difference_team1 = goal_differences[team_index_1]
+        goal_difference_team2 = goal_differences[team_index_2]
+        if goal_difference_team1 > goal_difference_team2:
+            pass
+
+        elif goal_difference_team1 == goal_difference_team2:
+            print("same goal difference")
+            self.check_total_goals(team_index_1, team_index_2)
+
+        elif goal_difference_team1 < goal_difference_team2:
+            self.swap_rows(team_index_1)
+
+    def check_total_goals(self, team_index_1, team_index_2):
+        goals = [i[4] for i in self.table.values]
+        goals_team1 = goals[team_index_1]
+        goals_team2 = goals[team_index_2]
+        if goals_team1 > goals_team2:
+            pass
+
+        elif goals_team1 == goals_team2:
+            raise NotImplementedError("Can't decide which team is better")
+
+        elif goals_team1 < goals_team2:
+            self.swap_rows(team_index_1)
 
 
 groups = [Group("Turkey", "Italy", "Wales", "Switzerland"),
