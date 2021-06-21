@@ -1,0 +1,12 @@
+**/Lib
+**/Include
+**/Scripts
+pyvenv.cfg
+EM.iml
+discord.xml
+misc.xml
+modules.xml
+other.xml
+profiles_settings.xml
+Project_Default.xml
+vcs.xml
