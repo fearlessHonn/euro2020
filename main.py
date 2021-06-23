@@ -1,9 +1,9 @@
-import itertools
 import pandas as pd
-import numpy as np
+import itertools
 
-parameters = ["Games", "Wins", "Draws", "Losses", "Goals", "Conceded goals", "Goal difference", "Points"]
+parameters = ["Games", "Wins", "Draws", "Losses", "Goals", "Conceded goals", "Goal difference", "Points", "Team"]
 games = dict()
+groups = []
 
 
 def read_results(inp="results.txt"):
@@ -25,70 +25,63 @@ class Group:
 
         self.teams = teams
         self.remaining = []
-        self.remaining_games()
 
         if inp is None:
-            self.table = pd.DataFrame([[0 for i in range(8)] for i in range(4)], index=self.teams, columns=parameters)
+            self.table = [[0 for i in range(9)] for i in range(4)]
+            for i, team in enumerate(teams):
+                self.table[i][8] = team
         else:
             self.table = inp
 
-    def remaining_games(self, teams=None):
-        global games
-        teams = self.teams if teams is None else teams
-        self.remaining = []
-        for game, result in games.items():
-            if result == "-:-" and (game[0] in teams or game[1] in teams):
-                self.remaining.append(game)
-
-        return self.remaining
-
     def get_table(self):
         global games
-        results = [[0 for i in range(8)] for i in range(4)]
         for game, result in games.items():
             if result != "-:-" and (game[0] in self.teams or game[1] in self.teams):
                 g1 = int(list(result)[0])
                 g2 = int(list(result)[2])
                 td = g1 - g2
 
-                results[self.teams.index(game[0])][0] += 1  # Updating Games
-                results[self.teams.index(game[1])][0] += 1
+                team_index1 = self.teams.index(game[0])
+                team_index2 = self.teams.index(game[1])
 
-                results[self.teams.index(game[0])][6] += td  # Updating goal difference
-                results[self.teams.index(game[1])][6] -= td
+                self.table[team_index1][0] += 1  # Updating Games
+                self.table[team_index2][0] += 1
 
-                results[self.teams.index(game[0])][4] += g1  # Updating goals
-                results[self.teams.index(game[1])][4] += g2
+                self.table[team_index1][6] += td  # Updating goal difference
+                self.table[team_index2][6] -= td
 
-                results[self.teams.index(game[0])][5] += g2  # Updating conceded goals
-                results[self.teams.index(game[1])][5] += g1
+                self.table[team_index1][4] += g1  # Updating goals
+                self.table[team_index2][4] += g2
+
+                self.table[team_index1][5] += g2  # Updating conceded goals
+                self.table[team_index2][5] += g1
 
                 if td > 0:  # Teams A wins
-                    results[self.teams.index(game[0])][1] += 1
-                    results[self.teams.index(game[1])][3] += 1
+                    self.table[team_index1][1] += 1
+                    self.table[team_index2][3] += 1
 
-                    results[self.teams.index(game[0])][7] += 3
+                    self.table[team_index1][7] += 3
 
                 if td == 0:
-                    results[self.teams.index(game[0])][2] += 1
-                    results[self.teams.index(game[1])][2] += 1
+                    self.table[team_index1][2] += 1
+                    self.table[team_index2][2] += 1
 
-                    results[self.teams.index(game[0])][7] += 1
-                    results[self.teams.index(game[1])][7] += 1
+                    self.table[team_index1][7] += 1
+                    self.table[team_index2][7] += 1
 
                 if td < 0:  # Teams A wins
-                    results[self.teams.index(game[1])][1] += 1
-                    results[self.teams.index(game[0])][3] += 1
+                    self.table[team_index1][1] += 1
+                    self.table[team_index1][3] += 1
 
-                    results[self.teams.index(game[1])][7] += 3
+                    self.table[team_index2][7] += 3
 
-        self.table = pd.DataFrame(results, index=self.teams, columns=parameters)
         return self.table
 
     def sort_table(self):
         global games
-        self.table = self.table.sort_values(by="Points", ascending=False)
-        points = [i[7] for i in self.table.values]
+        self.table = sorted(self.table, key=lambda x: x[-2], reverse=True)
+        self.teams = [i[8] for i in self.table]
+        points = [i[7] for i in self.table]
         sames = []
         for i, val in enumerate(points):
             if points.count(val) > 1:
@@ -96,7 +89,7 @@ class Group:
 
         if sames:
             sames = [s for i, s in enumerate(sames) if s not in sames[i + 1:]]
-            teams = list(self.table.index.values)
+            teams = self.teams
             for same in sames:
                 try:
                     team1, team2 = teams[same[0]], teams[same[1]]
@@ -128,15 +121,14 @@ class Group:
         return self.table
 
     def swap_rows(self, index):
-        rows = list(self.table.index)
-        rows = rows[:index] + [rows[index + 1]] + [rows[index]] + rows[index + 2:]
-        self.table.index = rows
+        rows = self.table
+        self.table = rows[:index] + [rows[index + 1]] + [rows[index]] + rows[index + 2:]
 
-        row1, row2 = list(self.table.iloc[index]), list(self.table.iloc[index + 1])
-        self.table.iloc[index], self.table.iloc[index + 1] = row2, row1
+        teams = self.teams
+        self.teams = teams[:index] + [teams[index + 1]] + [teams[index]] + teams[index + 2:]
 
     def check_goal_difference(self, team_index_1, team_index_2):
-        goal_differences = [i[6] for i in self.table.values]
+        goal_differences = [i[6] for i in self.table]
         goal_difference_team1 = goal_differences[team_index_1]
         goal_difference_team2 = goal_differences[team_index_2]
         if goal_difference_team1 > goal_difference_team2:
@@ -149,34 +141,37 @@ class Group:
             self.swap_rows(team_index_1)
 
     def check_total_goals(self, team_index_1, team_index_2):
-        goals = [i[4] for i in self.table.values]
+        goals = [i[4] for i in self.table]
         goals_team1 = goals[team_index_1]
         goals_team2 = goals[team_index_2]
         if goals_team1 > goals_team2:
             pass
 
         elif goals_team1 == goals_team2:
-            raise NotImplementedError("Can't decide which team is better")
+            print(NotImplementedError("Can't decide which team is better"))
 
         elif goals_team1 < goals_team2:
             self.swap_rows(team_index_1)
 
     def placements(self):
-        i = self.table.index
+        i = self.teams = [i[8] for i in self.table]
         self.first, self.second, self.third, self.fourth = i[0], i[1], i[2], i[3]
-        self.third_params = self.table.iloc[2]
+        self.third_params = self.table[2]
 
 
-groups = [Group(teams=["Turkey", "Italy", "Wales", "Switzerland"]),
-          Group(teams=["Denmark", "Finland", "Belgium", "Russia"]),
-          Group(teams=["Netherlands", "Ukraine", "Austria", "North-Macedonia"]),
-          Group(teams=["England", "Croatia", "Scotland", "Czech-Republic"]),
-          Group(teams=["Spain", "Sweden", "Poland", "Slovakia"]),
-          Group(teams=["Hungary", "Portugal", "France", "Germany"])]
+def init_groups():
+    global groups
+    groups = [Group(teams=["Turkey", "Italy", "Wales", "Switzerland"]),
+              Group(teams=["Denmark", "Finland", "Belgium", "Russia"]),
+              Group(teams=["Netherlands", "Ukraine", "Austria", "North-Macedonia"]),
+              Group(teams=["England", "Croatia", "Scotland", "Czech-Republic"]),
+              Group(teams=["Spain", "Sweden", "Poland", "Slovakia"]),
+              Group(teams=["Hungary", "Portugal", "France", "Germany"])]
 
 
 def calculate_groups():
     global games
+    init_groups()
     thirds = []
     thirds_params = []
     direct_qualification = []
@@ -191,17 +186,14 @@ def calculate_groups():
         direct_qualification.append(group.first)
         direct_qualification.append(group.second)
 
-    input = pd.DataFrame(thirds_params, index=thirds, columns=parameters)
+    input = thirds_params
     group_of_thirds = Group(teams=thirds, inp=input)
     group_of_thirds.sort_table()
 
+    group_of_thirds.placements()
     best_thirds = [group_of_thirds.first, group_of_thirds.second, group_of_thirds.third, group_of_thirds.fourth]
 
-    qualified = direct_qualification + best_thirds
-
-
-def is_qualified(country):
-    return country in qualified
+    return direct_qualification + best_thirds
 
 
 def generate_possible_results(r=6):
@@ -209,18 +201,33 @@ def generate_possible_results(r=6):
     return possible_results
 
 
-def is_qualification_possible(country):
+def is_qualification_possible(country, depth):
     global games
-    remaining_games = [i for sub in [g.remaining_games() for g in groups] for i in sub]
-    print(remaining_games)
-    for game in remaining_games:
-        for result in generate_possible_results():
-            games[game] = result
+    remaining_games = [game for game, result in games.items() if result == "-:-"]
+    possible_qualifications = []
+    combinations = list(itertools.product(generate_possible_results(depth), repeat=len(remaining_games)))
+    for c, combination in enumerate(combinations):
+        print(f"Combination {c + 1} of {len(combinations)}: {combination}")
+        for i, game in enumerate(remaining_games):
+            games[game] = combination[i]
+        if country in calculate_groups():
+            possible_qualifications.append(combination)
 
+    if possible_qualifications:
+        print(possible_qualifications)
+        print(
+            f"Qualification for {country} is possible.")
+    else:
+        print(f"Qualification for {country} isn't possible")
 
-generate_possible_results()
-is_qualification_possible("a")
 
 if __name__ == "__main__":
+    init_groups()
     read_results()
     calculate_groups()
+    print("\n".join([f'{pd.DataFrame(g.table, index=g.teams, columns=parameters)}, {g.first}, {g.second}, {g.third}, {g.fourth}' for g in groups]))
+
+    generate_possible_results()
+    country = "Hungary"
+    possible_qualifications = is_qualification_possible(country, 4)
+
