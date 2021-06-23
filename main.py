@@ -3,39 +3,50 @@ import pandas as pd
 import numpy as np
 
 parameters = ["Games", "Wins", "Draws", "Losses", "Goals", "Conceded goals", "Goal difference", "Points"]
+games = dict()
+
+
+def read_results(inp="results.txt"):
+    global games
+    with open(inp, "r") as results:
+        results = results.read().replace("vs ", "").split("\n")
+        results = [result.split(":") for result in results]
+        results = {(result[0].split()[0], result[0].split()[1]): f"{result[1]}:{result[2]}" for result in results}
+
+        games = results.copy()
+
+        return games
 
 
 class Group:
-    def __init__(self, a, b, c, d):
-        self.team_a = a
-        self.team_b = b
-        self.team_c = c
-        self.team_d = d
+    def __init__(self, teams, inp=None):
+        self.first, self.second, self.third, self.fourth = None, None, None, None
+        self.third_params = None
 
-        self.teams = [self.team_a, self.team_b, self.team_c, self.team_d]
-        self.games = {i: "-:-" for i in self.combinations()}
+        self.teams = teams
         self.remaining = []
         self.remaining_games()
 
-        self.table = pd.DataFrame([[0 for i in range(8)] for i in range(4)], index=self.teams, columns=parameters)
-
-    def combinations(self):
-        return list(itertools.combinations(self.teams, 2))
+        if inp is None:
+            self.table = pd.DataFrame([[0 for i in range(8)] for i in range(4)], index=self.teams, columns=parameters)
+        else:
+            self.table = inp
 
     def remaining_games(self, teams=None):
+        global games
         teams = self.teams if teams is None else teams
         self.remaining = []
-        for game, result in self.games.items():
-            if result == "-:-" and game[0] in teams or game[1] in teams:
+        for game, result in games.items():
+            if result == "-:-" and (game[0] in teams or game[1] in teams):
                 self.remaining.append(game)
 
         return self.remaining
 
     def get_table(self):
-        self.read_results()
+        global games
         results = [[0 for i in range(8)] for i in range(4)]
-        for game, result in self.games.items():
-            if result != "-:-":
+        for game, result in games.items():
+            if result != "-:-" and (game[0] in self.teams or game[1] in self.teams):
                 g1 = int(list(result)[0])
                 g2 = int(list(result)[2])
                 td = g1 - g2
@@ -74,21 +85,8 @@ class Group:
         self.table = pd.DataFrame(results, index=self.teams, columns=parameters)
         return self.table
 
-    def enter_results(self):
-        for game in self.remaining_games():
-            result = input(f"Result for {game[0]} vs {game[1]}:")
-            self.games[game] = result
-
-    def read_results(self, inp="results.txt"):
-        with open(inp, "r") as results:
-            results = results.read().replace("vs ", "").split("\n")
-            results = [result.split(":") for result in results]
-            results = {(result[0].split()[0], result[0].split()[1]): f"{result[1]}:{result[2]}" for result in results}
-
-            self.games = {game: result if game not in results.keys() else results[game] for game, result in self.games.items()}
-
     def sort_table(self):
-        self.get_table()
+        global games
         self.table = self.table.sort_values(by="Points", ascending=False)
         points = [i[7] for i in self.table.values]
         sames = []
@@ -102,9 +100,14 @@ class Group:
             for same in sames:
                 try:
                     team1, team2 = teams[same[0]], teams[same[1]]
+                    res = games[(team1, team2)]
                 except KeyError:
-                    team1, team2 = teams[same[1]], teams[same[0]]
-                res = self.games[(team1, team2)]
+                    try:
+                        team1, team2 = teams[same[1]], teams[same[0]]
+                        res = games[(team1, team2)]
+                    except KeyError:
+                        res = "-:-"
+                        self.check_goal_difference(same[0], same[1])
                 if res != "-:-":
                     g1 = int(list(res)[0])
                     g2 = int(list(res)[2])
@@ -114,14 +117,12 @@ class Group:
                         pass
 
                     elif td == 0:  # Draw
-                        print("direct comparison is a draw!")
                         self.check_goal_difference(same[0], same[1])
 
                     elif td < 0:  # Teams B wins
                         self.swap_rows(same[0])
 
                 else:
-                    print("Havent played each other yet!")
                     self.check_goal_difference(same[0], same[1])
 
         return self.table
@@ -142,7 +143,6 @@ class Group:
             pass
 
         elif goal_difference_team1 == goal_difference_team2:
-            print("same goal difference")
             self.check_total_goals(team_index_1, team_index_2)
 
         elif goal_difference_team1 < goal_difference_team2:
@@ -161,21 +161,66 @@ class Group:
         elif goals_team1 < goals_team2:
             self.swap_rows(team_index_1)
 
+    def placements(self):
+        i = self.table.index
+        self.first, self.second, self.third, self.fourth = i[0], i[1], i[2], i[3]
+        self.third_params = self.table.iloc[2]
 
-groups = [Group("Turkey", "Italy", "Wales", "Switzerland"),
-          Group("Denmark", "Finland", "Belgium", "Russia"),
-          Group("Netherlands", "Ukraine", "Austria", "North-Macedonia"),
-          Group("England", "Croatia", "Scotland", "Czech-Republic"),
-          Group("Spain", "Sweden", "Poland", "Slovakia"),
-          Group("Hungary", "Portugal", "France", "Germany")]
 
-for group in groups:
-    group.get_table()
-    group.sort_table()
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None, "expand_frame_repr", False):
-        print(group.table)
+groups = [Group(teams=["Turkey", "Italy", "Wales", "Switzerland"]),
+          Group(teams=["Denmark", "Finland", "Belgium", "Russia"]),
+          Group(teams=["Netherlands", "Ukraine", "Austria", "North-Macedonia"]),
+          Group(teams=["England", "Croatia", "Scotland", "Czech-Republic"]),
+          Group(teams=["Spain", "Sweden", "Poland", "Slovakia"]),
+          Group(teams=["Hungary", "Portugal", "France", "Germany"])]
 
-for group in groups[1:]:
-    groups[0].table = groups[0].table.append(group.table)
 
-groups[0].table.to_excel("output.xlsx")
+def calculate_groups():
+    global games
+    thirds = []
+    thirds_params = []
+    direct_qualification = []
+    for group in groups:
+        group.games = games
+        group.get_table()
+        group.sort_table()
+
+        group.placements()
+        thirds.append(group.third)
+        thirds_params.append(group.third_params)
+        direct_qualification.append(group.first)
+        direct_qualification.append(group.second)
+
+    input = pd.DataFrame(thirds_params, index=thirds, columns=parameters)
+    group_of_thirds = Group(teams=thirds, inp=input)
+    group_of_thirds.sort_table()
+
+    best_thirds = [group_of_thirds.first, group_of_thirds.second, group_of_thirds.third, group_of_thirds.fourth]
+
+    qualified = direct_qualification + best_thirds
+
+
+def is_qualified(country):
+    return country in qualified
+
+
+def generate_possible_results(r=6):
+    possible_results = [f"{a}:{b}" for a in range(r) for b in range(r)]
+    return possible_results
+
+
+def is_qualification_possible(country):
+    global games
+    remaining_games = [i for sub in [g.remaining_games() for g in groups] for i in sub]
+    print(remaining_games)
+    for game in remaining_games:
+        for result in generate_possible_results():
+            games[game] = result
+
+
+generate_possible_results()
+is_qualification_possible("a")
+
+if __name__ == "__main__":
+    read_results()
+    calculate_groups()

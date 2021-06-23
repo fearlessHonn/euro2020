@@ -24,3 +24,13 @@ Hungary vs Portugal:0:3
 Hungary vs France:1:1
 Portugal vs Germany:2:4
 France vs Germany:1:0
+England vs Czech-Republic:1:0
+Croatia vs Scotland:3:1
+Denmark vs Russia:1:4
+Finland vs Belgium:0:2
+Ukraine vs Austria:0:1
+Netherlands vs North-Macedonia:0:3
+Sweden vs Poland:-:-
+Slovakia vs Spain:-:-
+Portugal vs France:-:-
+Germany vs Hungary:-:-
